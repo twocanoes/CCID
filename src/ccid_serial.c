@@ -18,7 +18,8 @@
 	along with this library; if not, write to the Free Software Foundation,
 	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
+#include <syslog.h>
+#define USE_SYSLOG 1
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -30,7 +31,7 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <ifdhandler.h>
-
+#include <stdarg.h>
 #include <config.h>
 #include "defs.h"
 #include "ccid_ifdhandler.h"
@@ -47,7 +48,12 @@
 #define RDR_to_PC_NotifySlotChange 0x50
 #define CARD_ABSENT 0x02
 #define CARD_PRESENT 0x03
-
+#ifdef LOG_TO_STDERR
+#define LOG_STREAM stderr
+#else
+#define LOG_STREAM stdout
+#endif
+#define COUNT_OF(arr) (sizeof(arr)/sizeof(arr[0]))
 /*
  * normal command:
  * 1 : SYNC
@@ -163,6 +169,133 @@ static int ReadChunk(unsigned int reader_index, unsigned char *buffer,
 static int get_bytes(unsigned int reader_index, /*@out@*/ unsigned char *buffer,
 	int length);
 
+int InterruptRead(int reader_index, int timeout /* in ms */)
+{
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+    return 0;
+}
+void log_msg(const int priority, const char *fmt, ...)
+{
+    char debug_buffer[3 * 80]; /* up to 3 lines of 80 characters */
+    va_list argptr;
+    static struct timeval last_time = { 0, 0 };
+    struct timeval new_time = { 0, 0 };
+    struct timeval tmp;
+    int delta;
+#ifdef USE_SYSLOG
+    int syslog_level;
+
+    switch(priority)
+    {
+        case PCSC_LOG_CRITICAL:
+            syslog_level = LOG_CRIT;
+            break;
+        case PCSC_LOG_ERROR:
+            syslog_level = LOG_ERR;
+            break;
+        case PCSC_LOG_INFO:
+            syslog_level = LOG_INFO;
+            break;
+        default:
+            syslog_level = LOG_DEBUG;
+    }
+#else
+    const char *color_pfx = "", *color_sfx = "";
+    const char *time_pfx = "", *time_sfx = "";
+    static int initialized = 0;
+    static int LogDoColor = 0;
+
+    if (!initialized)
+    {
+        char *term;
+
+        initialized = 1;
+        term = getenv("TERM");
+        if (term)
+        {
+            const char *terms[] = { "linux", "xterm", "xterm-color", "Eterm", "rxvt", "rxvt-unicode", "xterm-256color" };
+            unsigned int i;
+
+            /* for each known color terminal */
+            for (i = 0; i < COUNT_OF(terms); i++)
+            {
+                /* we found a supported term? */
+                if (0 == strcmp(terms[i], term))
+                {
+                    LogDoColor = 1;
+                    break;
+                }
+            }
+        }
+    }
+syslog_level = LOG_DEBUG;
+    if (LogDoColor)
+    {
+        color_sfx = "\33[0m";
+        time_sfx = color_sfx;
+        time_pfx = "\33[36m"; /* Cyan */
+
+        switch (priority)
+        {
+            case PCSC_LOG_CRITICAL:
+                color_pfx = "\33[01;31m"; /* bright + Red */
+                break;
+
+            case PCSC_LOG_ERROR:
+                color_pfx = "\33[35m"; /* Magenta */
+                break;
+
+            case PCSC_LOG_INFO:
+                color_pfx = "\33[34m"; /* Blue */
+                break;
+
+            case PCSC_LOG_DEBUG:
+                color_pfx = ""; /* normal (black) */
+                color_sfx = "";
+                break;
+        }
+    }
+#endif
+
+    gettimeofday(&new_time, NULL);
+    if (0 == last_time.tv_sec)
+        last_time = new_time;
+
+    tmp.tv_sec = new_time.tv_sec - last_time.tv_sec;
+    tmp.tv_usec = new_time.tv_usec - last_time.tv_usec;
+    if (tmp.tv_usec < 0)
+    {
+        tmp.tv_sec--;
+        tmp.tv_usec += 1000000;
+    }
+    if (tmp.tv_sec < 100)
+        delta = tmp.tv_sec * 1000000 + tmp.tv_usec;
+    else
+        delta = 99999999;
+
+    last_time = new_time;
+
+    va_start(argptr, fmt);
+    (void)vsnprintf(debug_buffer, sizeof debug_buffer, fmt, argptr);
+    va_end(argptr);
+
+#ifdef USE_SYSLOG
+    syslog(syslog_level, "%.8d %s", delta, debug_buffer);
+#else
+    (void)fprintf(LOG_STREAM, "%s%.8d%s %s%s%s\n", time_pfx, delta, time_sfx,
+                  color_pfx, debug_buffer, color_sfx);
+    fflush(LOG_STREAM);
+#endif
+} /* log_msg */
+
+//void log_msg(const int priority, const char *fmt, ...){
+//syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+//    syslog(LOG_ERR,fmt,...);
+//}
+void log_xxd(const int priority, const char *msg, const unsigned char *buffer,
+             const int len){
+syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+}
 
 /*****************************************************************************
  *
@@ -172,6 +305,7 @@ static int get_bytes(unsigned int reader_index, /*@out@*/ unsigned char *buffer,
 status_t WriteSerial(unsigned int reader_index, unsigned int length,
 	unsigned char *buffer)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
 	unsigned int i;
 	unsigned char lrc;
 	unsigned char low_level_buffer[GEMPCTWIN_MAXBUF];
@@ -222,6 +356,7 @@ status_t WriteSerial(unsigned int reader_index, unsigned int length,
 status_t ReadSerial(unsigned int reader_index,
 	unsigned int *length, unsigned char *buffer)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
 	unsigned char c;
 	int rv;
 	int echo;
@@ -354,6 +489,7 @@ ack:
  *****************************************************************************/
 int get_bytes(unsigned int reader_index, unsigned char *buffer, int length)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
 	int offset = serialDevice[reader_index].buffer_offset;
 	int offset_last = serialDevice[reader_index].buffer_offset_last;
 
@@ -409,6 +545,7 @@ int get_bytes(unsigned int reader_index, unsigned char *buffer, int length)
 static int ReadChunk(unsigned int reader_index, unsigned char *buffer,
 	int buffer_length, int min_length)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
 	int fd = serialDevice[reader_index].fd;
 # ifndef S_SPLINT_S
 	fd_set fdset;
@@ -468,6 +605,7 @@ static int ReadChunk(unsigned int reader_index, unsigned char *buffer,
  *****************************************************************************/
 status_t OpenSerial(unsigned int reader_index, int channel)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
 	char dev_name[FILENAME_MAX];
 
 	DEBUG_COMM3("Reader index: %X, Channel: %d", reader_index, channel);
@@ -511,22 +649,23 @@ status_t OpenSerial(unsigned int reader_index, int channel)
 static status_t set_ccid_descriptor(unsigned int reader_index,
 	const char *reader_name, const char *dev_name)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
 	int readerID;
 	int i;
 	int already_used = FALSE;
 	static int previous_reader_index = -1;
 
 	readerID = GEMPCTWIN;
-	if (0 == strcasecmp(reader_name,"GemCorePOSPro"))
-		readerID = GEMCOREPOSPRO;
-	else if (0 == strcasecmp(reader_name,"GemCoreSIMPro"))
-		readerID = GEMCORESIMPRO;
-	else if (0 == strcasecmp(reader_name,"GemCoreSIMPro2"))
-		readerID = GEMCORESIMPRO2;
-	else if (0 == strcasecmp(reader_name,"GemPCPinPad"))
-		readerID = GEMPCPINPAD;
-	else if (0 == strcasecmp(reader_name,"SEC1210"))
-		readerID = SEC1210;
+//    if (0 == strcasecmp(reader_name,"GemCorePOSPro"))
+//        readerID = GEMCOREPOSPRO;
+//    else if (0 == strcasecmp(reader_name,"GemCoreSIMPro"))
+//        readerID = GEMCORESIMPRO;
+//    else if (0 == strcasecmp(reader_name,"GemCoreSIMPro2"))
+//        readerID = GEMCORESIMPRO2;
+//    else if (0 == strcasecmp(reader_name,"GemPCPinPad"))
+//        readerID = GEMPCPINPAD;
+//    else if (0 == strcasecmp(reader_name,"SEC1210"))
+//        readerID = SEC1210;
 
 	/* check if the same channel is not already used to manage multi-slots readers*/
 	for (i = 0; i < CCID_DRIVER_MAX_READERS; i++)
@@ -536,7 +675,7 @@ static status_t set_ccid_descriptor(unsigned int reader_index,
 		{
 			already_used = TRUE;
 
-			DEBUG_COMM2("%s already used. Multi-slot reader?", dev_name);
+			syslog(LOG_ERR,"%s already used. Multi-slot reader?", dev_name);
 			break;
 		}
 	}
@@ -555,7 +694,7 @@ static status_t set_ccid_descriptor(unsigned int reader_index,
 			*serialDevice[reader_index].nb_opened_slots += 1;
 			serialDevice[reader_index].ccid.bCurrentSlotIndex++;
 			serialDevice[reader_index].ccid.dwSlotStatus = IFD_ICC_PRESENT;
-			DEBUG_INFO2("Opening slot: %d",
+			syslog(LOG_ERR,"Opening slot: %d",
 					serialDevice[reader_index].ccid.bCurrentSlotIndex);
 			switch (readerID)
 			{
@@ -591,7 +730,7 @@ static status_t set_ccid_descriptor(unsigned int reader_index,
 		}
 		else
 		{
-			DEBUG_CRITICAL2("Trying to open too many slots on %s", dev_name);
+			syslog(LOG_ERR,"Trying to open too many slots on %s", dev_name);
 			return STATUS_UNSUCCESSFUL;
 		}
 
@@ -688,14 +827,18 @@ end:
  *****************************************************************************/
 status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 {
+    return STATUS_SUCCESS;
 	struct termios current_termios;
 	unsigned int reader = reader_index;
 	/* 255 is MAX_DEVICENAME in pcscd.h */
+
 	char reader_name[255] = "GemPCTwin";
 	char *p;
 	status_t ret;
 
-	DEBUG_COMM3("Reader index: %X, Device: %s", reader_index, dev_name);
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+//    return STATUS_SUCCESS;
+	syslog(LOG_ERR,"Reader index: %X, Device: %s", reader_index, dev_name);
 
 	/* parse dev_name using the pattern "device:name" */
 	p = strchr(dev_name, ':');
@@ -720,7 +863,7 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 
 	if (-1 == serialDevice[reader].fd)
 	{
-		DEBUG_CRITICAL3("open %s: %s", dev_name, strerror(errno));
+		syslog(LOG_ERR,"open %s: %s", dev_name, strerror(errno));
 		return STATUS_UNSUCCESSFUL;
 	}
 
@@ -731,7 +874,7 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 
 		if (ioctl(serialDevice[reader].fd, TIOCMGET, &flags) < 0)
 		{
-			DEBUG_CRITICAL2("Get RS232 signals state failed: %s",
+			syslog(LOG_ERR,"Get RS232 signals state failed: %s",
 				strerror(errno));
 		}
 		else
@@ -739,11 +882,11 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 			flags &= ~TIOCM_RTS;
 			if (ioctl(serialDevice[reader].fd, TIOCMSET, &flags) < 0)
 			{
-				DEBUG_CRITICAL2("Set RTS to low failed: %s", strerror(errno));
+				syslog(LOG_ERR,"Set RTS to low failed: %s", strerror(errno));
 			}
 			else
 			{
-				DEBUG_COMM("Plug-n-Play inhibition successful");
+				syslog(LOG_ERR,"Plug-n-Play inhibition successful");
 			}
 		}
 	}
@@ -753,12 +896,12 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 
 	/* empty in and out serial buffers */
 	if (tcflush(serialDevice[reader].fd, TCIOFLUSH))
-			DEBUG_INFO2("tcflush() function error: %s", strerror(errno));
+			syslog(LOG_ERR,"tcflush() function error: %s", strerror(errno));
 
 	/* get config attributes */
 	if (tcgetattr(serialDevice[reader].fd, &current_termios) == -1)
 	{
-		DEBUG_INFO2("tcgetattr() function error: %s", strerror(errno));
+		syslog(LOG_ERR,"tcgetattr() function error: %s", strerror(errno));
 		(void)close(serialDevice[reader].fd);
 		serialDevice[reader].fd = -1;
 
@@ -789,12 +932,12 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 		 * starts at 9600 bauds, so let's first try this speed */
 		/* set serial port speed to 9600 bauds */
 		(void)cfsetspeed(&current_termios, B9600);
-		DEBUG_INFO1("Set serial port baudrate to 9600 and correct configuration");
+		syslog(LOG_ERR,"Set serial port baudrate to 9600 and correct configuration");
 		if (tcsetattr(serialDevice[reader_index].fd, TCSANOW, &current_termios) == -1)
 		{
 			(void)close(serialDevice[reader_index].fd);
 			serialDevice[reader_index].fd = -1;
-			DEBUG_CRITICAL2("tcsetattr error: %s", strerror(errno));
+			syslog(LOG_ERR,"tcsetattr error: %s", strerror(errno));
 
 			return STATUS_UNSUCCESSFUL;
 		}
@@ -824,7 +967,7 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 			}
 			else
 			{
-				DEBUG_INFO1("CmdEscape to configure 115200 bauds failed");
+				syslog(LOG_ERR,"CmdEscape to configure 115200 bauds failed");
 			}
 		}
 		/* In case of a failure, reader is probably already at 115200
@@ -834,12 +977,12 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 	/* set serial port speed to 115200 bauds */
 	(void)cfsetspeed(&current_termios, B115200);
 
-	DEBUG_INFO1("Set serial port baudrate to 115200 and correct configuration");
+	syslog(LOG_ERR,"Set serial port baudrate to 115200 and correct configuration");
 	if (tcsetattr(serialDevice[reader].fd, TCSANOW, &current_termios) == -1)
 	{
 		(void)close(serialDevice[reader].fd);
 		serialDevice[reader].fd = -1;
-		DEBUG_INFO2("tcsetattr error: %s", strerror(errno));
+		syslog(LOG_ERR,"tcsetattr error: %s", strerror(errno));
 
 		return STATUS_UNSUCCESSFUL;
 	}
@@ -860,13 +1003,13 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 		if (IFD_SUCCESS != CmdEscape(reader_index, tx_buffer, sizeof(tx_buffer),
 			rx_buffer, &rx_length, 2*1000))
 		{
-			DEBUG_CRITICAL("Get firmware failed. Maybe the reader is not connected");
+			syslog(LOG_ERR,"Get firmware failed. Maybe the reader is not connected");
 			(void)CloseSerial(reader_index);
 			return STATUS_UNSUCCESSFUL;
 		}
 
 		rx_buffer[rx_length] = '\0';
-		DEBUG_INFO2("Firmware: %s", rx_buffer);
+		syslog(LOG_ERR,"Firmware: %s", rx_buffer);
 	}
 
 	/* perform a command to configure GemPC Twin reader card movement
@@ -881,7 +1024,7 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 		if (IFD_SUCCESS != CmdEscape(reader_index, tx_buffer, sizeof(tx_buffer),
 			rx_buffer, &rx_length, 0))
 		{
-			DEBUG_CRITICAL("Change card movement notification failed.");
+			syslog(LOG_ERR,"Change card movement notification failed.");
 			(void)CloseSerial(reader_index);
 			return STATUS_UNSUCCESSFUL;
 		}
@@ -902,13 +1045,14 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
  *****************************************************************************/
 status_t CloseSerial(unsigned int reader_index)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
 	unsigned int reader = reader_index;
 
 	/* device not opened */
 	if (NULL == serialDevice[reader_index].device)
 		return STATUS_UNSUCCESSFUL;
 
-	DEBUG_COMM2("Closing serial device: %s", serialDevice[reader_index].device);
+	syslog(LOG_ERR,"Closing serial device: %s", serialDevice[reader_index].device);
 
 	/* Decrement number of opened slot */
 	(*serialDevice[reader_index].nb_opened_slots)--;
@@ -916,7 +1060,7 @@ status_t CloseSerial(unsigned int reader_index)
 	/* release the allocated ressources for the last slot only */
 	if (0 == *serialDevice[reader_index].nb_opened_slots)
 	{
-		DEBUG_COMM("Last slot closed. Release resources");
+		syslog(LOG_ERR,"Last slot closed. Release resources");
 
 		(void)close(serialDevice[reader].fd);
 		serialDevice[reader].fd = -1;

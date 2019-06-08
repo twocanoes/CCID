@@ -48,7 +48,7 @@ extern int LogLevel;
 #define DEBUG_LEVEL_PERIODIC 8
 
 #include <debuglog.h>	/* from pcsc-lite */
-
+void log_msg(const int priority, const char *fmt, ...);
 /* DEBUG_CRITICAL */
 #define DEBUG_CRITICAL(fmt) if (LogLevel & DEBUG_LEVEL_CRITICAL) Log1(PCSC_LOG_CRITICAL, fmt)
 

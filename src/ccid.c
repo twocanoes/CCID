@@ -18,7 +18,7 @@
 */
 
 #include <config.h>
-
+#define LOG_STREAM stderr
 #ifdef HAVE_STDIO_H
 #include <stdio.h>
 #endif
@@ -31,7 +31,7 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-
+#include "misc.h"
 #include <pcsclite.h>
 #include <ifdhandler.h>
 
@@ -208,39 +208,178 @@ static void dump_gemalto_firmware_features(struct GEMALTO_FIRMWARE_FEATURES *gff
  *					set_gemalto_firmware_features
  *
  ****************************************************************************/
+//void log_msg(const int priority, const char *fmt, ...)
+//{
+//    char debug_buffer[3 * 80]; /* up to 3 lines of 80 characters */
+//    va_list argptr;
+//    static struct timeval last_time = { 0, 0 };
+//    struct timeval new_time = { 0, 0 };
+//    struct timeval tmp;
+//    int delta;
+//#ifdef USE_SYSLOG
+//    int syslog_level;
+//
+//    switch(priority)
+//    {
+//        case PCSC_LOG_CRITICAL:
+//            syslog_level = LOG_CRIT;
+//            break;
+//        case PCSC_LOG_ERROR:
+//            syslog_level = LOG_ERR;
+//            break;
+//        case PCSC_LOG_INFO:
+//            syslog_level = LOG_INFO;
+//            break;
+//        default:
+//            syslog_level = LOG_DEBUG;
+//    }
+//#else
+//    const char *color_pfx = "", *color_sfx = "";
+//    const char *time_pfx = "", *time_sfx = "";
+//    static int initialized = 0;
+//    static int LogDoColor = 0;
+//
+//    if (!initialized)
+//    {
+//        char *term;
+//
+//        initialized = 1;
+//        term = getenv("TERM");
+//        if (term)
+//        {
+//            const char *terms[] = { "linux", "xterm", "xterm-color", "Eterm", "rxvt", "rxvt-unicode", "xterm-256color" };
+//            unsigned int i;
+//
+//            /* for each known color terminal */
+//            for (i = 0; i < COUNT_OF(terms); i++)
+//            {
+//                /* we found a supported term? */
+//                if (0 == strcmp(terms[i], term))
+//                {
+//                    LogDoColor = 1;
+//                    break;
+//                }
+//            }
+//        }
+//    }
+//
+//    if (LogDoColor)
+//    {
+//        color_sfx = "\33[0m";
+//        time_sfx = color_sfx;
+//        time_pfx = "\33[36m"; /* Cyan */
+//
+//        switch (priority)
+//        {
+//            case PCSC_LOG_CRITICAL:
+//                color_pfx = "\33[01;31m"; /* bright + Red */
+//                break;
+//
+//            case PCSC_LOG_ERROR:
+//                color_pfx = "\33[35m"; /* Magenta */
+//                break;
+//
+//            case PCSC_LOG_INFO:
+//                color_pfx = "\33[34m"; /* Blue */
+//                break;
+//
+//            case PCSC_LOG_DEBUG:
+//                color_pfx = ""; /* normal (black) */
+//                color_sfx = "";
+//                break;
+//        }
+//    }
+//#endif
+//
+//    gettimeofday(&new_time, NULL);
+//    if (0 == last_time.tv_sec)
+//        last_time = new_time;
+//
+//    tmp.tv_sec = new_time.tv_sec - last_time.tv_sec;
+//    tmp.tv_usec = new_time.tv_usec - last_time.tv_usec;
+//    if (tmp.tv_usec < 0)
+//    {
+//        tmp.tv_sec--;
+//        tmp.tv_usec += 1000000;
+//    }
+//    if (tmp.tv_sec < 100)
+//        delta = tmp.tv_sec * 1000000 + tmp.tv_usec;
+//    else
+//        delta = 99999999;
+//
+//    last_time = new_time;
+//
+//    va_start(argptr, fmt);
+//    (void)vsnprintf(debug_buffer, sizeof debug_buffer, fmt, argptr);
+//    va_end(argptr);
+//
+//#ifdef USE_SYSLOG
+//    syslog(syslog_level, "%.8d %s", delta, debug_buffer);
+//#else
+//    (void)fprintf(LOG_STREAM, "%s%.8d%s %s%s%s\n", time_pfx, delta, time_sfx,
+//                  color_pfx, debug_buffer, color_sfx);
+//    fflush(LOG_STREAM);
+//#endif
+//} /* log_msg */
 static void set_gemalto_firmware_features(unsigned int reader_index)
 {
-	_ccid_descriptor *ccid_descriptor = get_ccid_descriptor(reader_index);
-	struct GEMALTO_FIRMWARE_FEATURES *gf_features;
+    _ccid_descriptor *ccid_descriptor = get_ccid_descriptor(reader_index);
+    struct GEMALTO_FIRMWARE_FEATURES *gf_features;
 
-	gf_features = malloc(sizeof(struct GEMALTO_FIRMWARE_FEATURES));
-	if (gf_features)
-	{
-		unsigned char cmd[] = { 0x6A }; /* GET_FIRMWARE_FEATURES command id */
-		unsigned int len_features = sizeof *gf_features;
-		RESPONSECODE ret;
+    gf_features = malloc(sizeof(struct GEMALTO_FIRMWARE_FEATURES));
+    if (gf_features)
+    {
+        unsigned char cmd[] = { 0x6A }; /* GET_FIRMWARE_FEATURES command id */
+        unsigned int len_features = sizeof *gf_features;
+        RESPONSECODE ret;
 
-		ret = CmdEscapeCheck(reader_index, cmd, sizeof cmd,
-			(unsigned char*)gf_features, &len_features, 0, TRUE);
-		if ((IFD_SUCCESS == ret) &&
-		    (len_features == sizeof *gf_features))
-		{
-			/* Command is supported if it succeeds at CCID level */
-			/* and returned size matches our expectation */
-			ccid_descriptor->gemalto_firmware_features = gf_features;
+        ret = CmdEscapeCheck(reader_index, cmd, sizeof cmd,
+            (unsigned char*)gf_features, &len_features, 0, TRUE);
+        if ((IFD_SUCCESS == ret) &&
+            (len_features == sizeof *gf_features))
+        {
+            /* Command is supported if it succeeds at CCID level */
+            /* and returned size matches our expectation */
+            ccid_descriptor->gemalto_firmware_features = gf_features;
 #ifndef NO_LOG
-			dump_gemalto_firmware_features(gf_features);
+            dump_gemalto_firmware_features(gf_features);
 #endif
-		}
-		else
-		{
-			/* Command is not supported, let's free allocated memory */
-			free(gf_features);
-			DEBUG_INFO3("GET_FIRMWARE_FEATURES failed: " DWORD_D ", len=%d",
-				ret, len_features);
-		}
-	}
+        }
+        else
+        {
+            /* Command is not supported, let's free allocated memory */
+            free(gf_features);
+            DEBUG_INFO3("GET_FIRMWARE_FEATURES failed: " DWORD_D ", len=%d",
+                ret, len_features);
+        }
+    }
 } /* set_gemalto_firmware_features */
+//void log_xxd(const int priority, const char *msg, const unsigned char *buffer,
+//             const int len)
+//{
+//    int i;
+//    char *c, debug_buffer[len*3 + strlen(msg) +1];
+//    size_t l;
+//
+//    (void)priority;
+//
+//    l = strlcpy(debug_buffer, msg, sizeof debug_buffer);
+//    c = debug_buffer + l;
+//
+//    for (i = 0; i < len; ++i)
+//    {
+//        /* 2 hex characters, 1 space, 1 NUL : total 4 characters */
+//        (void)snprintf(c, 4, "%02X ", buffer[i]);
+//        c += 3;
+//    }
+//
+//#ifdef USE_SYSLOG
+//    syslog(LOG_DEBUG, "%s", debug_buffer);
+//#else
+//    (void)fprintf(LOG_STREAM, "%s\n", debug_buffer);
+//    fflush(LOG_STREAM);
+//#endif
+//} /* log_xxd */
 
 /*****************************************************************************
  *
@@ -577,6 +716,7 @@ int ccid_open_hack_post(unsigned int reader_index)
 void ccid_error(int log_level, int error, const char *file, int line,
 	const char *function)
 {
+    
 #ifndef NO_LOG
 	const char *text;
 	char var_text[30];
@@ -696,6 +836,8 @@ void ccid_error(int log_level, int error, const char *file, int line,
 	}
 	log_msg(log_level, "%s:%d:%s %s", file, line, function, text);
 #endif
+
+
 
 } /* ccid_error */
 

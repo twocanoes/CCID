@@ -35,6 +35,7 @@
 #include <arpa/inet.h>
 #endif
 
+#include <syslog.h>
 #include "misc.h"
 #include <pcsclite.h>
 #include <ifdhandler.h>
@@ -79,6 +80,8 @@ static int get_IFSC(ATR_t *atr, int *i);
 
 static void FreeChannel(int reader_index)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 #ifdef HAVE_PTHREAD
 	(void)pthread_mutex_lock(&ifdh_context_mutex);
 #endif
@@ -98,6 +101,8 @@ static void FreeChannel(int reader_index)
 static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
 	LPSTR lpcDevice, DWORD Channel)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	RESPONSECODE return_value = IFD_SUCCESS;
 	int reader_index;
 	status_t ret;
@@ -221,6 +226,8 @@ error:
 
 EXTERNAL RESPONSECODE IFDHCreateChannelByName(DWORD Lun, LPSTR lpcDevice)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	return CreateChannelByNameOrChannel(Lun, lpcDevice, -1);
 }
 
@@ -259,6 +266,8 @@ EXTERNAL RESPONSECODE IFDHCreateChannel(DWORD Lun, DWORD Channel)
 	 *
 	 * IFD_SUCCESS IFD_COMMUNICATION_ERROR
 	 */
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	return CreateChannelByNameOrChannel(Lun, NULL, Channel);
 } /* IFDHCreateChannel */
 
@@ -275,6 +284,8 @@ EXTERNAL RESPONSECODE IFDHCloseChannel(DWORD Lun)
 	 *
 	 * IFD_SUCCESS IFD_COMMUNICATION_ERROR
 	 */
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	int reader_index;
 
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
@@ -299,6 +310,8 @@ EXTERNAL RESPONSECODE IFDHCloseChannel(DWORD Lun)
 #if !defined(TWIN_SERIAL)
 static RESPONSECODE IFDHPolling(DWORD Lun, int timeout)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	int reader_index;
 
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
@@ -316,6 +329,8 @@ static RESPONSECODE IFDHPolling(DWORD Lun, int timeout)
  * so no card movement will ever happen: just do nothing */
 static RESPONSECODE IFDHSleep(DWORD Lun, int timeout)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	int reader_index;
 
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
@@ -337,6 +352,8 @@ static RESPONSECODE IFDHSleep(DWORD Lun, int timeout)
 
 static RESPONSECODE IFDHStopPolling(DWORD Lun)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	int reader_index;
 
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
@@ -350,273 +367,273 @@ static RESPONSECODE IFDHStopPolling(DWORD Lun)
 }
 #endif
 
-
 EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
-	PDWORD Length, PUCHAR Value)
+                                          PDWORD Length, PUCHAR Value)
 {
-	/*
-	 * This function should get the slot/card capabilities for a
-	 * particular slot/card specified by Lun.  Again, if you have only 1
-	 * card slot and don't mind loading a new driver for each reader then
-	 * ignore Lun.
-	 *
-	 * Tag - the tag for the information requested example: TAG_IFD_ATR -
-	 * return the Atr and its size (required). these tags are defined in
-	 * ifdhandler.h
-	 *
-	 * Length - the length of the returned data Value - the value of the
-	 * data
-	 *
-	 * returns:
-	 *
-	 * IFD_SUCCESS IFD_ERROR_TAG
-	 */
-	int reader_index;
-	RESPONSECODE return_value = IFD_SUCCESS;
+    /*
+     * This function should get the slot/card capabilities for a
+     * particular slot/card specified by Lun.  Again, if you have only 1
+     * card slot and don't mind loading a new driver for each reader then
+     * ignore Lun.
+     *
+     * Tag - the tag for the information requested example: TAG_IFD_ATR -
+     * return the Atr and its size (required). these tags are defined in
+     * ifdhandler.h
+     *
+     * Length - the length of the returned data Value - the value of the
+     * data
+     *
+     * returns:
+     *
+     * IFD_SUCCESS IFD_ERROR_TAG
+     */
+    int reader_index;
+    RESPONSECODE return_value = IFD_SUCCESS;
 
-	if (-1 == (reader_index = LunToReaderIndex(Lun)))
-		return IFD_COMMUNICATION_ERROR;
+    if (-1 == (reader_index = LunToReaderIndex(Lun)))
+        return IFD_COMMUNICATION_ERROR;
 
-	DEBUG_INFO4("tag: 0x" DWORD_X ", %s (lun: " DWORD_X ")", Tag,
-		CcidSlots[reader_index].readerName, Lun);
+    syslog(LOG_ALERT,"tag: 0x" DWORD_X ", %s (lun: " DWORD_X ")", Tag,
+           CcidSlots[reader_index].readerName, Lun);
+    switch (Tag)
+    {
+        case TAG_IFD_ATR:
+        case SCARD_ATTR_ATR_STRING:
+            /* If Length is not zero, powerICC has been performed.
+             * Otherwise, return NULL pointer
+             * Buffer size is stored in *Length */
+            if ((int)*Length >= CcidSlots[reader_index].nATRLength)
+            {
+                *Length = CcidSlots[reader_index].nATRLength;
 
-	switch (Tag)
-	{
-		case TAG_IFD_ATR:
-		case SCARD_ATTR_ATR_STRING:
-			/* If Length is not zero, powerICC has been performed.
-			 * Otherwise, return NULL pointer
-			 * Buffer size is stored in *Length */
-			if ((int)*Length >= CcidSlots[reader_index].nATRLength)
-			{
-				*Length = CcidSlots[reader_index].nATRLength;
+                memcpy(Value, CcidSlots[reader_index].pcATRBuffer, *Length);
+            }
+            else
+                return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
+            break;
 
-				memcpy(Value, CcidSlots[reader_index].pcATRBuffer, *Length);
-			}
-			else
-				return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
-			break;
+        case SCARD_ATTR_ICC_INTERFACE_STATUS:
+            *Length = 1;
+            if (IFD_ICC_PRESENT == IFDHICCPresence(Lun))
+            /* nonzero if contact is active */
+                *Value = 1;
+            else
+            /* smart card electrical contact is not active */
+                *Value = 0;
+            break;
 
-		case SCARD_ATTR_ICC_INTERFACE_STATUS:
-			*Length = 1;
-			if (IFD_ICC_PRESENT == IFDHICCPresence(Lun))
-				/* nonzero if contact is active */
-				*Value = 1;
-			else
-				/* smart card electrical contact is not active */
-				*Value = 0;
-			break;
-
-		case SCARD_ATTR_ICC_PRESENCE:
-			*Length = 1;
-			/* Single byte indicating smart card presence:
-			 * 0 = not present
-			 * 1 = card present but not swallowed (applies only if
-			 *     reader supports smart card swallowing)
-			 * 2 = card present (and swallowed if reader supports smart
-			 *     card swallowing)
-			 * 4 = card confiscated. */
-			if (IFD_ICC_PRESENT == IFDHICCPresence(Lun))
-				/* Card present */
-				*Value = 2;
-			else
-				/* Not present */
-				*Value = 0;
-			break;
+        case SCARD_ATTR_ICC_PRESENCE:
+            *Length = 1;
+            /* Single byte indicating smart card presence:
+             * 0 = not present
+             * 1 = card present but not swallowed (applies only if
+             *     reader supports smart card swallowing)
+             * 2 = card present (and swallowed if reader supports smart
+             *     card swallowing)
+             * 4 = card confiscated. */
+            if (IFD_ICC_PRESENT == IFDHICCPresence(Lun))
+            /* Card present */
+                *Value = 2;
+            else
+            /* Not present */
+                *Value = 0;
+            break;
 
 #ifdef HAVE_PTHREAD
-		case TAG_IFD_SIMULTANEOUS_ACCESS:
-			if (*Length >= 1)
-			{
-				*Length = 1;
-				*Value = CCID_DRIVER_MAX_READERS;
-			}
-			else
-				return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
-			break;
+        case TAG_IFD_SIMULTANEOUS_ACCESS:
+            if (*Length >= 1)
+            {
+                *Length = 1;
+                *Value = CCID_DRIVER_MAX_READERS;
+            }
+            else
+                return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
+            break;
 
-		case TAG_IFD_THREAD_SAFE:
-			if (*Length >= 1)
-			{
-				*Length = 1;
-#ifdef __APPLE__
-				*Value = 0; /* Apple pcscd is bogus (rdar://problem/5697388) */
-#else
-				*Value = 1; /* Can talk to multiple readers at the same time */
+        case TAG_IFD_THREAD_SAFE:
+            *Length = 1;
+            *Value = 0;
+            //            if (*Length >= 1)
+            //            {
+            //                *Length = 1;
+            //#ifdef __APPLE__
+            //                *Value = 0; /* Apple pcscd is bogus (rdar://problem/5697388) */
+            //#else
+            //                *Value = 1; /* Can talk to multiple readers at the same time */
+            //#endif
+            //            }
+            //            else
+            //                return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
+            break;
 #endif
-			}
-			else
-				return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
-			break;
-#endif
 
-		case TAG_IFD_SLOTS_NUMBER:
-			if (*Length >= 1)
-			{
-				*Length = 1;
-				*Value = 1 + get_ccid_descriptor(reader_index) -> bMaxSlotIndex;
-#ifdef USE_COMPOSITE_AS_MULTISLOT
-				{
-					/* On MacOS X or Linux+libusb we can simulate a
-					 * composite device with 2 CCID interfaces by a
-					 * multi-slot reader */
-					int readerID =  get_ccid_descriptor(reader_index) -> readerID;
+        case TAG_IFD_SLOTS_NUMBER:
+            if (*Length >= 1)
+            {
+                *Length = 1;
+                *Value = 1 ;//+ get_ccid_descriptor(reader_index) -> bMaxSlotIndex;
+                //#ifdef USE_COMPOSITE_AS_MULTISLOT
+                //                {
+                //                    /* On MacOS X or Linux+libusb we can simulate a
+                //                     * composite device with 2 CCID interfaces by a
+                //                     * multi-slot reader */
+                //                    int readerID =  get_ccid_descriptor(reader_index) -> readerID;
+                //
+                //                    /* 2 CCID interfaces */
+                //                    if ((GEMALTOPROXDU == readerID)
+                //                        || (GEMALTOPROXSU == readerID)
+                //                        || (HID_OMNIKEY_5422 == readerID))
+                //                        *Value = 2;
+                //
+                //                    /* 3 CCID interfaces */
+                //                    if (FEITIANR502DUAL == readerID)
+                //                        *Value = 3;
+                //                }
+                //#endif
+                DEBUG_INFO2("Reader supports %d slot(s)", *Value);
+            }
+            //            else
+            //                return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
+            break;
 
-					/* 2 CCID interfaces */
-					if ((GEMALTOPROXDU == readerID)
-						|| (GEMALTOPROXSU == readerID)
-						|| (HID_OMNIKEY_5422 == readerID))
-						*Value = 2;
+        case TAG_IFD_SLOT_THREAD_SAFE:
+            if (*Length >= 1)
+            {
+                *Length = 1;
+                *Value = 0; /* Can NOT talk to multiple slots at the same time */
+            }
+            else
+                return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
+            break;
 
-					/* 3 CCID interfaces */
-					if (FEITIANR502DUAL == readerID)
-						*Value = 3;
-				}
-#endif
-				DEBUG_INFO2("Reader supports %d slot(s)", *Value);
-			}
-			else
-				return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
-			break;
+        case SCARD_ATTR_VENDOR_IFD_VERSION:
+        {
+            int IFD_bcdDevice = get_ccid_descriptor(reader_index)->IFD_bcdDevice;
 
-		case TAG_IFD_SLOT_THREAD_SAFE:
-			if (*Length >= 1)
-			{
-				*Length = 1;
-				*Value = 0; /* Can NOT talk to multiple slots at the same time */
-			}
-			else
-				return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
-			break;
+            /* Vendor-supplied interface device version (DWORD in the form
+             * 0xMMmmbbbb where MM = major version, mm = minor version, and
+             * bbbb = build number). */
+            *Length = 4;
+            if (Value)
+                *(uint32_t *)Value = IFD_bcdDevice << 16;
+        }
+            break;
 
-		case SCARD_ATTR_VENDOR_IFD_VERSION:
-			{
-				int IFD_bcdDevice = get_ccid_descriptor(reader_index)->IFD_bcdDevice;
+        case SCARD_ATTR_VENDOR_NAME:
+        {
+            const char *sIFD_iManufacturer = get_ccid_descriptor(reader_index) -> sIFD_iManufacturer;
 
-				/* Vendor-supplied interface device version (DWORD in the form
-				 * 0xMMmmbbbb where MM = major version, mm = minor version, and
-				 * bbbb = build number). */
-				*Length = 4;
-				if (Value)
-					*(uint32_t *)Value = IFD_bcdDevice << 16;
-			}
-			break;
+            if (sIFD_iManufacturer)
+            {
+                strlcpy((char *)Value, sIFD_iManufacturer, *Length);
+                *Length = strlen((char *)Value) +1;
+            }
+            else
+            {
+                /* not supported */
+                *Length = 0;
+            }
+        }
+            break;
 
-		case SCARD_ATTR_VENDOR_NAME:
-			{
-				const char *sIFD_iManufacturer = get_ccid_descriptor(reader_index) -> sIFD_iManufacturer;
-
-				if (sIFD_iManufacturer)
-				{
-					strlcpy((char *)Value, sIFD_iManufacturer, *Length);
-					*Length = strlen((char *)Value) +1;
-				}
-				else
-				{
-					/* not supported */
-					*Length = 0;
-				}
-			}
-			break;
-
-		case SCARD_ATTR_MAXINPUT:
-			*Length = sizeof(uint32_t);
-			if (Value)
-				*(uint32_t *)Value = get_ccid_descriptor(reader_index) -> dwMaxCCIDMessageLength -10;
-			break;
+        case SCARD_ATTR_MAXINPUT:
+            *Length = sizeof(uint32_t);
+            if (Value)
+                *(uint32_t *)Value = 3062;//get_ccid_descriptor(reader_index) -> dwMaxCCIDMessageLength -10;
+            break;
 
 #if !defined(TWIN_SERIAL)
-		case TAG_IFD_POLLING_THREAD_WITH_TIMEOUT:
-			{
-				_ccid_descriptor *ccid_desc;
+        case TAG_IFD_POLLING_THREAD_WITH_TIMEOUT:
+        {
+            _ccid_descriptor *ccid_desc;
 
-				/* default value: not supported */
-				*Length = 0;
+            /* default value: not supported */
+            *Length = 0;
 
-				ccid_desc = get_ccid_descriptor(reader_index);
+            ccid_desc = get_ccid_descriptor(reader_index);
 
-				/* CCID and not ICCD */
-				if ((PROTOCOL_CCID == ccid_desc -> bInterfaceProtocol)
-					/* 3 end points */
-					&& (3 == ccid_desc -> bNumEndpoints))
-				{
-					*Length = sizeof(void *);
-					if (Value)
-						*(void **)Value = IFDHPolling;
-				}
+            /* CCID and not ICCD */
+            if ((PROTOCOL_CCID == ccid_desc -> bInterfaceProtocol)
+                /* 3 end points */
+                && (3 == ccid_desc -> bNumEndpoints))
+            {
+                *Length = sizeof(void *);
+                if (Value)
+                    *(void **)Value = IFDHPolling;
+            }
 
-				if ((PROTOCOL_ICCD_A == ccid_desc->bInterfaceProtocol)
-					|| (PROTOCOL_ICCD_B == ccid_desc->bInterfaceProtocol))
-				{
-					*Length = sizeof(void *);
-					if (Value)
-						*(void **)Value = IFDHSleep;
-				}
-			}
-			break;
+            if ((PROTOCOL_ICCD_A == ccid_desc->bInterfaceProtocol)
+                || (PROTOCOL_ICCD_B == ccid_desc->bInterfaceProtocol))
+            {
+                *Length = sizeof(void *);
+                if (Value)
+                    *(void **)Value = IFDHSleep;
+            }
+        }
+            break;
 
-		case TAG_IFD_POLLING_THREAD_KILLABLE:
-			{
-				_ccid_descriptor *ccid_desc;
+        case TAG_IFD_POLLING_THREAD_KILLABLE:
+        {
+            _ccid_descriptor *ccid_desc;
 
-				/* default value: not supported */
-				*Length = 0;
+            /* default value: not supported */
+            *Length = 0;
 
-				ccid_desc = get_ccid_descriptor(reader_index);
-				if ((PROTOCOL_ICCD_A == ccid_desc->bInterfaceProtocol)
-					|| (PROTOCOL_ICCD_B == ccid_desc->bInterfaceProtocol))
-				{
-					*Length = 1;	/* 1 char */
-					if (Value)
-						*Value = 1;	/* TRUE */
-				}
-			}
-			break;
+            ccid_desc = get_ccid_descriptor(reader_index);
+            if ((PROTOCOL_ICCD_A == ccid_desc->bInterfaceProtocol)
+                || (PROTOCOL_ICCD_B == ccid_desc->bInterfaceProtocol))
+            {
+                *Length = 1;    /* 1 char */
+                if (Value)
+                    *Value = 1;    /* TRUE */
+            }
+        }
+            break;
 
-		case TAG_IFD_STOP_POLLING_THREAD:
-			{
-				_ccid_descriptor *ccid_desc;
+        case TAG_IFD_STOP_POLLING_THREAD:
+        {
+            _ccid_descriptor *ccid_desc;
 
-				/* default value: not supported */
-				*Length = 0;
+            /* default value: not supported */
+            *Length = 0;
 
-				ccid_desc = get_ccid_descriptor(reader_index);
-				/* CCID and not ICCD */
-				if ((PROTOCOL_CCID == ccid_desc -> bInterfaceProtocol)
-					/* 3 end points */
-					&& (3 == ccid_desc -> bNumEndpoints))
-				{
-					*Length = sizeof(void *);
-					if (Value)
-						*(void **)Value = IFDHStopPolling;
-				}
-			}
-			break;
+            ccid_desc = get_ccid_descriptor(reader_index);
+            /* CCID and not ICCD */
+            if ((PROTOCOL_CCID == ccid_desc -> bInterfaceProtocol)
+                /* 3 end points */
+                && (3 == ccid_desc -> bNumEndpoints))
+            {
+                *Length = sizeof(void *);
+                if (Value)
+                    *(void **)Value = IFDHStopPolling;
+            }
+        }
+            break;
 #endif
 
-		case SCARD_ATTR_VENDOR_IFD_SERIAL_NO:
-			{
-				_ccid_descriptor *ccid_desc;
+        case SCARD_ATTR_VENDOR_IFD_SERIAL_NO:
+        {
+            _ccid_descriptor *ccid_desc;
 
-				ccid_desc = get_ccid_descriptor(reader_index);
-				if (ccid_desc->sIFD_serial_number)
-				{
-					strlcpy((char *)Value, ccid_desc->sIFD_serial_number, *Length);
-					*Length = strlen((char *)Value)+1;
-				}
-				else
-				{
-					/* not supported */
-					*Length = 0;
-				}
-			}
-			break;
+            ccid_desc = get_ccid_descriptor(reader_index);
+            if (ccid_desc->sIFD_serial_number)
+            {
+                strlcpy((char *)Value, ccid_desc->sIFD_serial_number, *Length);
+                *Length = strlen((char *)Value)+1;
+            }
+            else
+            {
+                /* not supported */
+                *Length = 0;
+            }
+        }
+            break;
 
-		default:
-			return_value = IFD_ERROR_TAG;
-	}
+        default:
+            return_value = IFD_ERROR_TAG;
+    }
 
-	return return_value;
+    return return_value;
 } /* IFDHGetCapabilities */
 
 
@@ -639,6 +656,7 @@ EXTERNAL RESPONSECODE IFDHSetCapabilities(DWORD Lun, DWORD Tag,
 	 * IFD_SUCCESS IFD_ERROR_TAG IFD_ERROR_SET_FAILURE
 	 * IFD_ERROR_VALUE_READ_ONLY
 	 */
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
 
 	(void)Length;
 	(void)Value;
@@ -676,7 +694,8 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 	 *  IFD_COMMUNICATION_ERROR
 	 *  IFD_PROTOCOL_NOT_SUPPORTED
 	 */
-
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+    return IFD_SUCCESS;
 	BYTE pps[PPS_MAX_LENGTH];
 	ATR_t atr;
 	unsigned int len;
@@ -1134,8 +1153,14 @@ EXTERNAL RESPONSECODE IFDHPowerICC(DWORD Lun, DWORD Action,
 	 * IFD_NOT_SUPPORTED
 	 */
 
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	unsigned int nlength;
 	RESPONSECODE return_value = IFD_SUCCESS;
+
+    *AtrLength=6;
+    memcpy(Atr, "010102", *AtrLength);
+    return IFD_SUCCESS;
 	unsigned char pcbuffer[10+MAX_ATR_SIZE];
 	int reader_index;
 #ifndef NO_LOG
@@ -1284,6 +1309,13 @@ EXTERNAL RESPONSECODE IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci,
 	 * IFD_SUCCESS IFD_COMMUNICATION_ERROR IFD_RESPONSE_TIMEOUT
 	 * IFD_ICC_NOT_PRESENT IFD_PROTOCOL_NOT_SUPPORTED
 	 */
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
+    DEBUG_INFO1("IDToken: Manufacturer command");
+    memcpy(RxBuffer, "KOBIL systems\220\0", 15);
+    *RxLength = 15;
+    
+    return IFD_SUCCESS;
 
 	RESPONSECODE return_value;
 	unsigned int rx_length;
@@ -1397,13 +1429,16 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 	 *
 	 * Notes: RxLength should be zero on error.
 	 */
+    syslog(LOG_ERR,"Control code: %x TCS:%s",dwControlCode,__PRETTY_FUNCTION__);
+
+//    dwControlCode=IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE;
 	RESPONSECODE return_value = IFD_ERROR_NOT_SUPPORTED;
 	int reader_index;
 	_ccid_descriptor *ccid_descriptor;
 
-	reader_index = LunToReaderIndex(Lun);
-	if ((-1 == reader_index) || (NULL == pdwBytesReturned))
-		return IFD_COMMUNICATION_ERROR;
+    reader_index = 0;// LunToReaderIndex(Lun);
+//    if ((-1 == reader_index) || (NULL == pdwBytesReturned))
+//        return IFD_COMMUNICATION_ERROR;
 
 	ccid_descriptor = get_ccid_descriptor(reader_index);
 
@@ -1419,7 +1454,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 		int allowed = (DriverOptions & DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED);
 		int readerID = ccid_descriptor -> readerID;
 
-		if (VENDOR_GEMALTO == GET_VENDOR(readerID))
+//        if (VENDOR_GEMALTO == GET_VENDOR(readerID))
 		{
 			unsigned char switch_interface[] = { 0x52, 0xF8, 0x04, 0x01, 0x00 };
 
@@ -1432,9 +1467,9 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 			 * 0x01 switch to contactless interface
 			 * 0x02 switch to contact interface
 			 */
-			if ((GEMALTOPROXDU == readerID)
-				&& (6 == TxLength)
-				&& (0 == memcmp(TxBuffer, switch_interface, sizeof(switch_interface))))
+//            if ((GEMALTOPROXDU == readerID)
+//                && (6 == TxLength)
+//                && (0 == memcmp(TxBuffer, switch_interface, sizeof(switch_interface))))
 				allowed = TRUE;
 		}
 
@@ -1449,8 +1484,8 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 
 			iBytesReturned = RxLength;
 			/* 30 seconds timeout for long commands */
-			return_value = CmdEscape(reader_index, TxBuffer, TxLength,
-				RxBuffer, &iBytesReturned, 30*1000);
+            return_value = 0;  //CmdEscape(reader_index, TxBuffer, TxLength,
+//                RxBuffer, &iBytesReturned, 30*1000);
 			*pdwBytesReturned = iBytesReturned;
 		}
 	}
@@ -1465,14 +1500,14 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 	{
 		unsigned int iBytesReturned = 0;
 		PCSC_TLV_STRUCTURE *pcsc_tlv = (PCSC_TLV_STRUCTURE *)RxBuffer;
-		int readerID = ccid_descriptor -> readerID;
+//        int readerID = ccid_descriptor -> readerID;
 
 		/* we need room for up to six records */
 		if (RxLength < 6 * sizeof(PCSC_TLV_STRUCTURE))
 			return IFD_ERROR_INSUFFICIENT_BUFFER;
 
 		/* We can only support direct verify and/or modify currently */
-		if (ccid_descriptor -> bPINSupport & CCID_CLASS_PIN_VERIFY)
+//        if (ccid_descriptor -> bPINSupport & CCID_CLASS_PIN_VERIFY)
 		{
 			pcsc_tlv -> tag = FEATURE_VERIFY_PIN_DIRECT;
 			pcsc_tlv -> length = 0x04; /* always 0x04 */
@@ -1482,7 +1517,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 			iBytesReturned += sizeof(PCSC_TLV_STRUCTURE);
 		}
 
-		if (ccid_descriptor -> bPINSupport & CCID_CLASS_PIN_MODIFY)
+//        if (ccid_descriptor -> bPINSupport & CCID_CLASS_PIN_MODIFY)
 		{
 			pcsc_tlv -> tag = FEATURE_MODIFY_PIN_DIRECT;
 			pcsc_tlv -> length = 0x04; /* always 0x04 */
@@ -1503,16 +1538,16 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 			iBytesReturned += sizeof(PCSC_TLV_STRUCTURE);
 		}
 
-		if ((KOBIL_TRIBANK == readerID)
-			|| (KOBIL_MIDENTITY_VISUAL == readerID))
-		{
-			pcsc_tlv -> tag = FEATURE_MCT_READER_DIRECT;
-			pcsc_tlv -> length = 0x04; /* always 0x04 */
-			pcsc_tlv -> value = htonl(IOCTL_FEATURE_MCT_READER_DIRECT);
-
-			pcsc_tlv++;
-			iBytesReturned += sizeof(PCSC_TLV_STRUCTURE);
-		}
+//        if ((KOBIL_TRIBANK == readerID)
+//            || (KOBIL_MIDENTITY_VISUAL == readerID))
+//        {
+//            pcsc_tlv -> tag = FEATURE_MCT_READER_DIRECT;
+//            pcsc_tlv -> length = 0x04; /* always 0x04 */
+//            pcsc_tlv -> value = htonl(IOCTL_FEATURE_MCT_READER_DIRECT);
+//
+//            pcsc_tlv++;
+//            iBytesReturned += sizeof(PCSC_TLV_STRUCTURE);
+//        }
 
 		pcsc_tlv -> tag = FEATURE_GET_TLV_PROPERTIES;
 		pcsc_tlv -> length = 0x04; /* always 0x04 */
@@ -1521,7 +1556,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 		iBytesReturned += sizeof(PCSC_TLV_STRUCTURE);
 
 		/* IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE */
-		if (DriverOptions & DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED)
+//        if (DriverOptions & DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED)
 		{
 			pcsc_tlv -> tag = FEATURE_CCID_ESC_COMMAND;
 			pcsc_tlv -> length = 0x04; /* always 0x04 */
@@ -1616,7 +1651,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 			unsigned int len;
 
 			len = sizeof(firmware);
-			ret = CmdEscape(reader_index, cmd, sizeof(cmd), firmware, &len, 0);
+            ret = 0;//CmdEscape(reader_index, cmd, sizeof(cmd), firmware, &len, 0);
 
 			if (IFD_SUCCESS == ret)
 			{
@@ -1784,8 +1819,8 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 
 			/* we just transmit the buffer as a CCID Escape command */
 			iBytesReturned = RxLength;
-			return_value = CmdEscape(reader_index, TxBuffer, TxLength,
-				RxBuffer, &iBytesReturned, 0);
+            return_value = 0;//CmdEscape(reader_index, TxBuffer, TxLength,
+//                RxBuffer, &iBytesReturned, 0);
 			*pdwBytesReturned = iBytesReturned;
 		}
 	}
@@ -1807,146 +1842,20 @@ EXTERNAL RESPONSECODE IFDHICCPresence(DWORD Lun)
 	 * returns: IFD_ICC_PRESENT IFD_ICC_NOT_PRESENT
 	 * IFD_COMMUNICATION_ERROR
 	 */
+//    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+    if( access( "/tmp/scinsert", F_OK ) != -1 ) {
+        return IFD_ICC_PRESENT;
+    }
 
-	unsigned char pcbuffer[SIZE_GET_SLOT_STATUS];
-	RESPONSECODE return_value = IFD_COMMUNICATION_ERROR;
-	int oldLogLevel;
-	int reader_index;
-	_ccid_descriptor *ccid_descriptor;
-	unsigned int oldReadTimeout;
 
-	if (-1 == (reader_index = LunToReaderIndex(Lun)))
-		return IFD_COMMUNICATION_ERROR;
-
-	DEBUG_PERIODIC3("%s (lun: " DWORD_X ")", CcidSlots[reader_index].readerName, Lun);
-
-	ccid_descriptor = get_ccid_descriptor(reader_index);
-
-	if ((GEMCORESIMPRO == ccid_descriptor->readerID)
-	     && (ccid_descriptor->IFD_bcdDevice < 0x0200))
-	{
-		/* GemCore SIM Pro firmware 2.00 and up features
-		 * a full independant second slot */
-		return_value = ccid_descriptor->dwSlotStatus;
-		goto end;
-	}
-
-	/* save the current read timeout computed from card capabilities */
-	oldReadTimeout = ccid_descriptor->readTimeout;
-
-	/* use default timeout since the reader may not be present anymore */
-	ccid_descriptor->readTimeout = DEFAULT_COM_READ_TIMEOUT;
-
-	/* if DEBUG_LEVEL_PERIODIC is not set we remove DEBUG_LEVEL_COMM */
-	oldLogLevel = LogLevel;
-	if (! (LogLevel & DEBUG_LEVEL_PERIODIC))
-		LogLevel &= ~DEBUG_LEVEL_COMM;
-
-	return_value = CmdGetSlotStatus(reader_index, pcbuffer);
-
-	/* set back the old timeout */
-	ccid_descriptor->readTimeout = oldReadTimeout;
-
-	/* set back the old LogLevel */
-	LogLevel = oldLogLevel;
-
-	if (return_value != IFD_SUCCESS)
-		return return_value;
-
-	return_value = IFD_COMMUNICATION_ERROR;
-	switch (pcbuffer[7] & CCID_ICC_STATUS_MASK)	/* bStatus */
-	{
-		case CCID_ICC_PRESENT_ACTIVE:
-			return_value = IFD_ICC_PRESENT;
-			/* use default slot */
-			break;
-
-		case CCID_ICC_PRESENT_INACTIVE:
-			if ((CcidSlots[reader_index].bPowerFlags == POWERFLAGS_RAZ)
-				|| (CcidSlots[reader_index].bPowerFlags & MASK_POWERFLAGS_PDWN))
-				/* the card was previously absent */
-				return_value = IFD_ICC_PRESENT;
-			else
-			{
-				/* the card was previously present but has been
-				 * removed and inserted between two consecutive
-				 * IFDHICCPresence() calls */
-				CcidSlots[reader_index].bPowerFlags = POWERFLAGS_RAZ;
-				return_value = IFD_ICC_NOT_PRESENT;
-			}
-			break;
-
-		case CCID_ICC_ABSENT:
-			/* Reset ATR buffer */
-			CcidSlots[reader_index].nATRLength = 0;
-			*CcidSlots[reader_index].pcATRBuffer = '\0';
-
-			/* Reset PowerFlags */
-			CcidSlots[reader_index].bPowerFlags = POWERFLAGS_RAZ;
-
-			return_value = IFD_ICC_NOT_PRESENT;
-			break;
-	}
-
-#if 0
-	/* SCR331-DI contactless reader */
-	if (((SCR331DI == ccid_descriptor->readerID)
-		|| (SDI010 == ccid_descriptor->readerID)
-		|| (SCR331DINTTCOM == ccid_descriptor->readerID))
-		&& (ccid_descriptor->bCurrentSlotIndex > 0))
-	{
-		unsigned char cmd[] = { 0x11 };
-		/*  command: 11 ??
-		 * response: 00 11 01 ?? no card
-		 *           01 04 00 ?? card present */
-
-		unsigned char res[10];
-		unsigned int length_res = sizeof(res);
-		RESPONSECODE ret;
-
-		/* if DEBUG_LEVEL_PERIODIC is not set we remove DEBUG_LEVEL_COMM */
-		oldLogLevel = LogLevel;
-		if (! (LogLevel & DEBUG_LEVEL_PERIODIC))
-			LogLevel &= ~DEBUG_LEVEL_COMM;
-
-		ret = CmdEscape(reader_index, cmd, sizeof(cmd), res, &length_res, 0);
-
-		/* set back the old LogLevel */
-		LogLevel = oldLogLevel;
-
-		if (ret != IFD_SUCCESS)
-		{
-			DEBUG_INFO1("CmdEscape failed");
-			/* simulate a card absent */
-			res[0] = 0;
-		}
-
-		if (0x01 == res[0])
-			return_value = IFD_ICC_PRESENT;
-		else
-		{
-			/* Reset ATR buffer */
-			CcidSlots[reader_index].nATRLength = 0;
-			*CcidSlots[reader_index].pcATRBuffer = '\0';
-
-			/* Reset PowerFlags */
-			CcidSlots[reader_index].bPowerFlags = POWERFLAGS_RAZ;
-
-			return_value = IFD_ICC_NOT_PRESENT;
-		}
-	}
-#endif
-
-end:
-	DEBUG_PERIODIC2("Card %s",
-		IFD_ICC_PRESENT == return_value ? "present" : "absent");
-
-	return return_value;
+    return IFD_ICC_NOT_PRESENT;
 } /* IFDHICCPresence */
 
 
 CcidDesc *get_ccid_slot(unsigned int reader_index)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	return &CcidSlots[reader_index];
 } /* get_ccid_slot */
 
@@ -2031,6 +1940,8 @@ void init_driver(void)
 
 static char find_baud_rate(unsigned int baudrate, unsigned int *list)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	int i;
 
 	DEBUG_COMM2("Card baud rate: %d", baudrate);
@@ -2058,6 +1969,8 @@ static char find_baud_rate(unsigned int baudrate, unsigned int *list)
 static unsigned int T0_card_timeout(double f, double d, int TC1, int TC2,
 	int clock_frequency)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	unsigned int timeout = DEFAULT_COM_READ_TIMEOUT;
 	double EGT, WWT;
 	unsigned int t;
@@ -2159,6 +2072,8 @@ static unsigned int T1_card_timeout(double f, double d, int TC1,
 
 static int get_IFSC(ATR_t *atr, int *idx)
 {
+    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
+
 	int i, ifsc, protocol = -1;
 
 	/* default return values */
