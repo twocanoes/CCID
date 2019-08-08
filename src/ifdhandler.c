@@ -17,6 +17,7 @@
 	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#define TCSWATCHFILE "/tmp/scinsert"
 #include <config.h>
 
 #ifdef HAVE_STDIO_H
@@ -453,17 +454,6 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
         case TAG_IFD_THREAD_SAFE:
             *Length = 1;
             *Value = 0;
-            //            if (*Length >= 1)
-            //            {
-            //                *Length = 1;
-            //#ifdef __APPLE__
-            //                *Value = 0; /* Apple pcscd is bogus (rdar://problem/5697388) */
-            //#else
-            //                *Value = 1; /* Can talk to multiple readers at the same time */
-            //#endif
-            //            }
-            //            else
-            //                return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
             break;
 #endif
 
@@ -471,25 +461,7 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
             if (*Length >= 1)
             {
                 *Length = 1;
-                *Value = 1 ;//+ get_ccid_descriptor(reader_index) -> bMaxSlotIndex;
-                //#ifdef USE_COMPOSITE_AS_MULTISLOT
-                //                {
-                //                    /* On MacOS X or Linux+libusb we can simulate a
-                //                     * composite device with 2 CCID interfaces by a
-                //                     * multi-slot reader */
-                //                    int readerID =  get_ccid_descriptor(reader_index) -> readerID;
-                //
-                //                    /* 2 CCID interfaces */
-                //                    if ((GEMALTOPROXDU == readerID)
-                //                        || (GEMALTOPROXSU == readerID)
-                //                        || (HID_OMNIKEY_5422 == readerID))
-                //                        *Value = 2;
-                //
-                //                    /* 3 CCID interfaces */
-                //                    if (FEITIANR502DUAL == readerID)
-                //                        *Value = 3;
-                //                }
-                //#endif
+                *Value = 1 ;
                 DEBUG_INFO2("Reader supports %d slot(s)", *Value);
             }
             //            else
@@ -1842,8 +1814,7 @@ EXTERNAL RESPONSECODE IFDHICCPresence(DWORD Lun)
 	 * returns: IFD_ICC_PRESENT IFD_ICC_NOT_PRESENT
 	 * IFD_COMMUNICATION_ERROR
 	 */
-//    syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
-    if( access( "/tmp/scinsert", F_OK ) != -1 ) {
+    if( access( TCSWATCHFILE, F_OK ) != -1 ) {
         return IFD_ICC_PRESENT;
     }
 

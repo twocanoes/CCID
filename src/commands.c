@@ -386,9 +386,6 @@ static RESPONSECODE CmdXfrBlockTPDU_T0(unsigned int reader_index,
 	unsigned int tx_length, unsigned char tx_buffer[], unsigned int *rx_length,
 	unsigned char rx_buffer[])
 {
-    //syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
-
-
     return IFD_SUCCESS;
 
 
@@ -404,9 +401,6 @@ static RESPONSECODE CmdXfrBlockTPDU_T0(unsigned int reader_index,
 static RESPONSECODE T0CmdParsing(unsigned char *cmd, unsigned int cmd_len,
 	/*@out@*/ unsigned int *exp_len)
 {
-    //syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
-
-
     return IFD_SUCCESS;
 
 
@@ -439,7 +433,6 @@ static RESPONSECODE T0ProcSW1(unsigned int reader_index,
 	unsigned char *rcv_buf, unsigned int *rcv_len,
 	unsigned char *in_buf, unsigned int in_len)
 {
-    //syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
     return IFD_SUCCESS;
 } /* T0ProcSW1 */
 
@@ -453,7 +446,6 @@ static RESPONSECODE CmdXfrBlockCHAR_T0(unsigned int reader_index,
 	unsigned int snd_len, unsigned char snd_buf[], unsigned int *rcv_len,
 	unsigned char rcv_buf[])
 {
-    //syslog(LOG_ERR,"TCS:%s",__PRETTY_FUNCTION__);
     return IFD_SUCCESS;
 } /* CmdXfrBlockCHAR_T0 */
 
